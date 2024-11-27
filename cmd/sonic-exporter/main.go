@@ -1,8 +1,10 @@
 package main
 
 import (
+	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log/level"
@@ -12,7 +14,7 @@ import (
 	"github.com/prometheus/common/promlog/flag"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"github.com/vinted/sonic-exporter/internal/collector"
+	"github.com/mwennrich/sonic-exporter/internal/collector"
 )
 
 func main() {
@@ -53,6 +55,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+	if err := web.ListenAndServe(srv, webConfig, slog.Default()); err != nil {
 		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
 		os.Exit(1)
 	}
