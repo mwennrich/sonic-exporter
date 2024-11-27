@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/mwennrich/sonic-exporter/pkg/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/vinted/sonic-exporter/pkg/redis"
 )
 
 type crmCollector struct {
@@ -111,7 +111,7 @@ func (collector *crmCollector) scrapeMetrics(ctx context.Context) error {
 		return fmt.Errorf("redis read failed: %w", err)
 	}
 
-	err = collector.collectCrmStatsCounters(ctx, crmStats)
+	err = collector.collectCrmStatsCounters(crmStats)
 	if err != nil {
 		return fmt.Errorf("crm stats collection failed: %w", err)
 	}
@@ -129,7 +129,7 @@ func (collector *crmCollector) scrapeMetrics(ctx context.Context) error {
 	return nil
 }
 
-func (collector *crmCollector) collectCrmStatsCounters(ctx context.Context, crmStats map[string]string) error {
+func (collector *crmCollector) collectCrmStatsCounters(crmStats map[string]string) error {
 	for stat, value := range crmStats {
 		parsedValue, err := parseFloat(value)
 		if err != nil {
