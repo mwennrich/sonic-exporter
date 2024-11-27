@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/mwennrich/sonic-exporter/pkg/redis"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/prometheus/common/promlog"
-	"github.com/vinted/sonic-exporter/pkg/redis"
 )
 
 type redisDatabase struct {

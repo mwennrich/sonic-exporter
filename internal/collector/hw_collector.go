@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/mwennrich/sonic-exporter/pkg/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/vinted/sonic-exporter/pkg/redis"
 )
 
 type hwCollector struct {

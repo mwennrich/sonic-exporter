@@ -49,8 +49,10 @@ func main() {
 			level.Error(logger).Log("msg", "Error writing response")
 		}
 	})
-	srv := &http.Server{}
-	if err := web.ListenAndServe(srv, webConfig, logger); err != nil {
+	srv := &http.Server{
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
 		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
 		os.Exit(1)
 	}

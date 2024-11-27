@@ -88,7 +88,7 @@ func (c *Client) selectClient(dbName string) (*redis.Client, error) {
 }
 
 // Issue a HGETALL on key in a selected database
-func (c Client) HgetAllFromDb(ctx context.Context, dbName, key string) (map[string]string, error) {
+func (c *Client) HgetAllFromDb(ctx context.Context, dbName, key string) (map[string]string, error) {
 	client, err := c.selectClient(dbName)
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (c Client) HgetAllFromDb(ctx context.Context, dbName, key string) (map[stri
 	return data, err
 }
 
-func (c Client) HsetToDb(ctx context.Context, dbName, key string, data map[string]string) error {
+func (c *Client) HsetToDb(ctx context.Context, dbName, key string, data map[string]string) error {
 	client, err := c.selectClient(dbName)
 	if err != nil {
 		return err
@@ -109,7 +109,7 @@ func (c Client) HsetToDb(ctx context.Context, dbName, key string, data map[strin
 	return nil
 }
 
-func (c Client) KeysFromDb(ctx context.Context, dbName, pattern string) ([]string, error) {
+func (c *Client) KeysFromDb(ctx context.Context, dbName, pattern string) ([]string, error) {
 	client, err := c.selectClient(dbName)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (c Client) KeysFromDb(ctx context.Context, dbName, pattern string) ([]strin
 	return keys, err
 }
 
-func (c Client) Close() {
+func (c *Client) Close() {
 	for name, client := range c.databases {
 		client.Close()
 		delete(c.databases, name)
