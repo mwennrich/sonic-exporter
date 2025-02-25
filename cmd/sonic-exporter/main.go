@@ -1,20 +1,20 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
-	"github.com/go-kit/log/level"
+	"github.com/mwennrich/sonic-exporter/internal/collector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/promlog"
-	"github.com/prometheus/common/promlog/flag"
+	"github.com/prometheus/common/promslog"
+	"github.com/prometheus/common/promslog/flag"
 	"github.com/prometheus/exporter-toolkit/web"
 	webflag "github.com/prometheus/exporter-toolkit/web/kingpinflag"
-	"github.com/mwennrich/sonic-exporter/internal/collector"
 )
 
 func main() {
@@ -23,13 +23,13 @@ func main() {
 		metricsPath = kingpin.Flag("web.telemetry-path", "Path under which to expose metrics.").Default("/metrics").String()
 	)
 
-	promlogConfig := &promlog.Config{}
-	flag.AddFlags(kingpin.CommandLine, promlogConfig)
+	promslogConfig := &promslog.Config{}
+	flag.AddFlags(kingpin.CommandLine, promslogConfig)
 	kingpin.HelpFlag.Short('h')
 	kingpin.CommandLine.UsageWriter(os.Stdout)
 	kingpin.Parse()
 
-	logger := promlog.New(promlogConfig)
+	logger := promslog.New(promslogConfig)
 
 	interfaceCollector := collector.NewInterfaceCollector(logger)
 	hwCollector := collector.NewHwCollector(logger)
@@ -48,7 +48,7 @@ func main() {
              </body>
              </html>`))
 		if err != nil {
-			level.Error(logger).Log("msg", "Error writing response")
+			logger.ErrorContext(context.Background(), "Error writing response", "err", err)
 		}
 	})
 	srv := &http.Server{
@@ -56,7 +56,7 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 	if err := web.ListenAndServe(srv, webConfig, slog.Default()); err != nil {
-		level.Error(logger).Log("msg", "Error starting HTTP server", "err", err)
+		logger.ErrorContext(context.Background(), "Error starting HTTP server", "err", err)
 		os.Exit(1)
 	}
 }
