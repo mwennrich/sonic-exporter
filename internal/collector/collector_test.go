@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/mwennrich/sonic-exporter/pkg/redis"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/prometheus/common/promlog"
-	"github.com/vinted/sonic-exporter/pkg/redis"
+	"github.com/prometheus/common/promslog"
 )
 
 type redisDatabase struct {
@@ -89,8 +89,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestInterfaceCollector(t *testing.T) {
-	promlogConfig := &promlog.Config{}
-	logger := promlog.New(promlogConfig)
+	promslogConfig := &promslog.Config{}
+	logger := promslog.New(promslogConfig)
 
 	interfaceCollector := NewInterfaceCollector(logger)
 
@@ -123,8 +123,8 @@ func TestInterfaceCollector(t *testing.T) {
 }
 
 func TestHwCollector(t *testing.T) {
-	promlogConfig := &promlog.Config{}
-	logger := promlog.New(promlogConfig)
+	promslogConfig := &promslog.Config{}
+	logger := promslog.New(promslogConfig)
 
 	hwCollector := NewHwCollector(logger)
 
@@ -157,8 +157,8 @@ func TestHwCollector(t *testing.T) {
 }
 
 func TestCrmCollector(t *testing.T) {
-	promlogConfig := &promlog.Config{}
-	logger := promlog.New(promlogConfig)
+	promslogConfig := &promslog.Config{}
+	logger := promslog.New(promslogConfig)
 
 	crmCollector := NewCrmCollector(logger)
 

@@ -3,15 +3,14 @@ package collector
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
+	"github.com/mwennrich/sonic-exporter/pkg/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/vinted/sonic-exporter/pkg/redis"
 )
 
 type packetSize string
@@ -38,11 +37,11 @@ type interfaceCollector struct {
 	scrapeCollectorSuccess           *prometheus.Desc
 	cachedMetrics                    []prometheus.Metric
 	lastScrapeTime                   time.Time
-	logger                           log.Logger
+	logger                           *slog.Logger
 	mu                               sync.Mutex
 }
 
-func NewInterfaceCollector(logger log.Logger) *interfaceCollector {
+func NewInterfaceCollector(logger *slog.Logger) *interfaceCollector {
 	const (
 		namespace = "sonic"
 		subsystem = "interface"
@@ -103,7 +102,7 @@ func (collector *interfaceCollector) Collect(ch chan<- prometheus.Metric) {
 
 	if time.Since(collector.lastScrapeTime) < cacheDuration {
 		// Return cached metrics without making redis calls
-		level.Info(collector.logger).Log("msg", "Returning interface metrics from cache")
+		collector.logger.InfoContext(ctx, "Returning interface metrics from cache")
 
 		for _, metric := range collector.cachedMetrics {
 			ch <- metric
@@ -114,7 +113,7 @@ func (collector *interfaceCollector) Collect(ch chan<- prometheus.Metric) {
 	err := collector.scrapeMetrics(ctx)
 	if err != nil {
 		scrapeSuccess = 0
-		level.Error(collector.logger).Log("err", err)
+		collector.logger.ErrorContext(ctx, err.Error())
 	}
 	collector.cachedMetrics = append(collector.cachedMetrics, prometheus.MustNewConstMetric(
 		collector.scrapeCollectorSuccess, prometheus.GaugeValue, scrapeSuccess,
@@ -126,7 +125,7 @@ func (collector *interfaceCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (collector *interfaceCollector) scrapeMetrics(ctx context.Context) error {
-	level.Info(collector.logger).Log("msg", "Starting interface metric scrape")
+	collector.logger.InfoContext(ctx, "Starting interface metric scrape")
 	scrapeTime := time.Now()
 
 	redisClient, err := redis.NewClient()
@@ -164,7 +163,7 @@ func (collector *interfaceCollector) scrapeMetrics(ctx context.Context) error {
 		return fmt.Errorf("interface optical info collection failed: %w", err)
 	}
 
-	level.Info(collector.logger).Log("msg", "Ending interface metric scrape")
+	collector.logger.InfoContext(ctx, "Ending interface metric scrape")
 
 	collector.lastScrapeTime = time.Now()
 	collector.cachedMetrics = append(collector.cachedMetrics, prometheus.MustNewConstMetric(

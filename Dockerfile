@@ -1,9 +1,11 @@
 # ===========
 # Build stage
 # ===========
-FROM golang:1.23.2-alpine3.18 AS builder
+FROM golang:1.24-alpine  AS builder
 
 WORKDIR /code
+
+ENV CGO_ENABLED=0
 
 # Pre-install dependencies to cache them as a separate image layer
 COPY go.mod go.sum ./
@@ -16,11 +18,10 @@ RUN go build -o sonic-exporter ./cmd/sonic-exporter/main.go
 # ===========
 # Final stage
 # ===========
-FROM alpine:3.18.3
+FROM scratch
 
 WORKDIR /app
-RUN apk --no-cache add curl
 
-COPY --from=builder /code/sonic-exporter .
+COPY --from=builder /code/sonic-exporter /
 
-CMD [ "./sonic-exporter" ]
+ENTRYPOINT [ "/sonic-exporter" ]
