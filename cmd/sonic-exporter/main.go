@@ -48,7 +48,7 @@ func main() {
              </body>
              </html>`))
 		if err != nil {
-			logger.ErrorContext(context.Background(), "Error writing response", "err", err)
+			logger.ErrorContext(r.Context(), "Error writing response", "err", err)
 		}
 	})
 	srv := &http.Server{
