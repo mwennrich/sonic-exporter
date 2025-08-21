@@ -15,7 +15,10 @@ var ctx = context.Background()
 func TestHgetAll(t *testing.T) {
 	s := miniredis.RunT(t)
 
-	os.Setenv("REDIS_ADDRESS", s.Addr())
+	err := os.Setenv("REDIS_ADDRESS", s.Addr())
+	if err != nil {
+		t.Fatalf("failed to set redis address: %v", err)
+	}
 
 	redisClient, _ := NewClient()
 
