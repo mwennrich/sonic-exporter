@@ -3,13 +3,13 @@ name: Docker Build Action
 on:
   pull_request:
     branches:
-      - master
+      - main
   release:
     types:
       - published
   push:
     branches:
-      - master
+      - main
 
 env:
   REGISTRY: ghcr.io
@@ -29,7 +29,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -38,9 +38,7 @@ jobs:
         cache: false
 
     - name: Lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        args: --build-tags integration -p bugs -p unused --timeout=3m
+      uses: golangci/golangci-lint-action@v8
 
     - name: Make tag
       run: |
