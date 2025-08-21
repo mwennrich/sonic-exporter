@@ -46,8 +46,9 @@ func pushDataFromFile(ctx context.Context, fileName string) error {
 	redisClient, _ := redis.NewClient()
 
 	file, _ := os.Open(fileName)
-	defer file.Close()
-
+	defer func() {
+		_ = file.Close()
+	}()
 	byteValue, err := io.ReadAll(file)
 	if err != nil {
 		return err
@@ -74,7 +75,12 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	os.Setenv("REDIS_ADDRESS", s.Addr())
+	err = os.Setenv("REDIS_ADDRESS", s.Addr())
+	if err != nil {
+		log.Printf("failed to set redis address: %v", err)
+		os.Exit(1)
+	}
+
 	err = populateRedisData()
 	if err != nil {
 		log.Printf("failed to populate redis data: %v", err)
@@ -84,7 +90,11 @@ func TestMain(m *testing.M) {
 	exitCode := m.Run()
 
 	s.Close()
-	os.Unsetenv("REDIS_ADDRESS")
+	err = os.Unsetenv("REDIS_ADDRESS")
+	if err != nil {
+		log.Printf("failed to unset redis address: %v", err)
+		os.Exit(1)
+	}
 	os.Exit(exitCode)
 }
 
