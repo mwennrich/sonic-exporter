@@ -28,11 +28,17 @@ type interfaceCollector struct {
 	interfaceTransmitPackets         *prometheus.Desc
 	interfaceTransmitBytes           *prometheus.Desc
 	interfaceTransmitErrs            *prometheus.Desc
+	interfaceTransmitDiscards        *prometheus.Desc
+	interfaceTransmitDrops           *prometheus.Desc
+	interfaceTransmitPause           *prometheus.Desc
 	interfaceOpticReceivePower       *prometheus.Desc
 	interfaceReceiveEthernetPackets  *prometheus.Desc
 	interfaceReceivePackets          *prometheus.Desc
 	interfaceReceivedBytes           *prometheus.Desc
 	interfaceReceiveErrs             *prometheus.Desc
+	interfaceReceiveDiscards         *prometheus.Desc
+	interfaceReceiveDrops            *prometheus.Desc
+	interfaceReceivePause            *prometheus.Desc
 	scrapeDuration                   *prometheus.Desc
 	scrapeCollectorSuccess           *prometheus.Desc
 	cachedMetrics                    []prometheus.Metric
@@ -70,6 +76,12 @@ func NewInterfaceCollector(logger *slog.Logger) *interfaceCollector {
 			"Number of packets transmitted on an interface", []string{"device", "method"}, nil),
 		interfaceTransmitErrs: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "transmit_errs_total"),
 			"Number of transmit errs on an interface", []string{"device", "type"}, nil),
+		interfaceTransmitDiscards: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "transmit_discards_total"),
+			"Number of transmit discards on an interface", []string{"device"}, nil),
+		interfaceTransmitDrops: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "transmit_drops_total"),
+			"Number of transmit drops on an interface", []string{"device"}, nil),
+		interfaceTransmitPause: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "transmit_pause_total"),
+			"Number of transmit pause frames on an interface", []string{"device"}, nil),
 		interfaceTransmitBytes: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "transmit_bytes_total"),
 			"Number of bytes transmitted on an interface", []string{"device"}, nil),
 		interfaceOpticReceivePower: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "optic_receive_power_dbm"),
@@ -80,6 +92,12 @@ func NewInterfaceCollector(logger *slog.Logger) *interfaceCollector {
 			"Number of packets received on an interface", []string{"device", "method"}, nil),
 		interfaceReceiveErrs: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "receive_errs_total"),
 			"Number of receive errs on an interface", []string{"device", "type"}, nil),
+		interfaceReceiveDiscards: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "receive_discards_total"),
+			"Number of receive discards on an interface", []string{"device"}, nil),
+		interfaceReceiveDrops: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "receive_drops_total"),
+			"Number of receive drops on an interface", []string{"device"}, nil),
+		interfaceReceivePause: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "receive_pause_total"),
+			"Number of receive pause frames on an interface", []string{"device"}, nil),
 		interfaceReceivedBytes: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "receive_bytes_total"),
 			"Number of bytes received on an interface", []string{"device"}, nil),
 		scrapeDuration: prometheus.NewDesc(prometheus.BuildFQName(namespace, subsystem, "scrape_duration_seconds"),
@@ -184,11 +202,17 @@ func (collector *interfaceCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- collector.interfaceTransmitEthernetPackets
 	ch <- collector.interfaceTransmitPackets
 	ch <- collector.interfaceTransmitErrs
+	ch <- collector.interfaceTransmitDiscards
+	ch <- collector.interfaceTransmitDrops
+	ch <- collector.interfaceTransmitPause
 	ch <- collector.interfaceTransmitBytes
 	ch <- collector.interfaceOpticReceivePower
 	ch <- collector.interfaceReceiveEthernetPackets
 	ch <- collector.interfaceReceivePackets
 	ch <- collector.interfaceReceiveErrs
+	ch <- collector.interfaceReceiveDiscards
+	ch <- collector.interfaceReceiveDrops
+	ch <- collector.interfaceReceivePause
 	ch <- collector.interfaceReceivedBytes
 	ch <- collector.scrapeDuration
 	ch <- collector.scrapeCollectorSuccess
@@ -211,6 +235,21 @@ func (collector *interfaceCollector) collectInterfaceCounters(ctx context.Contex
 	err = collector.collectInterfaceErrCounters(interfaceName, counters)
 	if err != nil {
 		return fmt.Errorf("err counters collection failed: %w", err)
+	}
+
+	err = collector.collectInterfaceDiscardCounters(interfaceName, counters)
+	if err != nil {
+		return fmt.Errorf("discard counters collection failed: %w", err)
+	}
+
+	err = collector.collectInterfaceDropCounters(interfaceName, counters)
+	if err != nil {
+		return fmt.Errorf("drop counters collection failed: %w", err)
+	}
+
+	err = collector.collectInterfacePauseCounters(interfaceName, counters)
+	if err != nil {
+		return fmt.Errorf("pause counters collection failed: %w", err)
 	}
 
 	err = collector.collectInterfacePacketCounters(interfaceName, counters)
@@ -394,41 +433,123 @@ func (collector *interfaceCollector) collectInterfaceByteCounters(interfaceName 
 }
 
 func (collector *interfaceCollector) collectInterfaceErrCounters(interfaceName string, counters map[string]string) error {
-	var interfaceErrorTypeMap = map[string]map[string]string{
-		"in": {
-			"error":   "SAI_PORT_STAT_IF_IN_ERRORS",
-			"discard": "SAI_PORT_STAT_IF_IN_DISCARDS",
-			"drop":    "SAI_PORT_STAT_IN_DROPPED_PKTS",
-			"pause":   "SAI_PORT_STAT_PAUSE_RX_PKTS",
-		},
-		"out": {
-			"error":   "SAI_PORT_STAT_IF_OUT_ERRORS",
-			"discard": "SAI_PORT_STAT_IF_OUT_DISCARDS",
-			"pause":   "SAI_PORT_STAT_PAUSE_TX_PKTS",
-		},
+	var interfaceErrorTypeMap = map[string]string{
+		"in":  "SAI_PORT_STAT_IF_IN_ERRORS",
+		"out": "SAI_PORT_STAT_IF_OUT_ERRORS",
 	}
 
 	for _, direction := range []string{"in", "out"} {
-		for errType, key := range interfaceErrorTypeMap[direction] {
-			packets, err := parseFloat(counters[key])
-			if err != nil {
-				return fmt.Errorf("value parse failed: %w", err)
-			}
+		packets, err := parseFloat(counters[interfaceErrorTypeMap[direction]])
+		if err != nil {
+			return fmt.Errorf("value parse failed: %w", err)
+		}
 
-			switch direction {
-			case "in":
-				collector.cachedMetrics = append(collector.cachedMetrics,
-					prometheus.MustNewConstMetric(
-						collector.interfaceReceiveErrs, prometheus.CounterValue, packets, interfaceName, errType,
-					),
-				)
-			case "out":
-				collector.cachedMetrics = append(collector.cachedMetrics,
-					prometheus.MustNewConstMetric(
-						collector.interfaceTransmitErrs, prometheus.CounterValue, packets, interfaceName, errType,
-					),
-				)
-			}
+		switch direction {
+		case "in":
+			collector.cachedMetrics = append(collector.cachedMetrics,
+				prometheus.MustNewConstMetric(
+					collector.interfaceReceiveErrs, prometheus.CounterValue, packets, interfaceName, "error",
+				),
+			)
+		case "out":
+			collector.cachedMetrics = append(collector.cachedMetrics,
+				prometheus.MustNewConstMetric(
+					collector.interfaceTransmitErrs, prometheus.CounterValue, packets, interfaceName, "error",
+				),
+			)
+		}
+	}
+
+	return nil
+}
+
+func (collector *interfaceCollector) collectInterfaceDiscardCounters(interfaceName string, counters map[string]string) error {
+	var interfaceDiscardTypeMap = map[string]string{
+		"in":  "SAI_PORT_STAT_IF_IN_DISCARDS",
+		"out": "SAI_PORT_STAT_IF_OUT_DISCARDS",
+	}
+
+	for _, direction := range []string{"in", "out"} {
+		packets, err := parseFloat(counters[interfaceDiscardTypeMap[direction]])
+		if err != nil {
+			return fmt.Errorf("value parse failed: %w", err)
+		}
+
+		switch direction {
+		case "in":
+			collector.cachedMetrics = append(collector.cachedMetrics,
+				prometheus.MustNewConstMetric(
+					collector.interfaceReceiveDiscards, prometheus.CounterValue, packets, interfaceName,
+				),
+			)
+		case "out":
+			collector.cachedMetrics = append(collector.cachedMetrics,
+				prometheus.MustNewConstMetric(
+					collector.interfaceTransmitDiscards, prometheus.CounterValue, packets, interfaceName,
+				),
+			)
+		}
+	}
+
+	return nil
+}
+
+func (collector *interfaceCollector) collectInterfaceDropCounters(interfaceName string, counters map[string]string) error {
+	var interfaceDropTypeMap = map[string]string{
+		"in":  "SAI_PORT_STAT_IN_DROPPED_PKTS",
+		"out": "SAI_PORT_STAT_OUT_DROPPED_PKTS",
+	}
+
+	for _, direction := range []string{"in", "out"} {
+		packets, err := parseFloat(counters[interfaceDropTypeMap[direction]])
+		if err != nil {
+			return fmt.Errorf("value parse failed: %w", err)
+		}
+
+		switch direction {
+		case "in":
+			collector.cachedMetrics = append(collector.cachedMetrics,
+				prometheus.MustNewConstMetric(
+					collector.interfaceReceiveDrops, prometheus.CounterValue, packets, interfaceName,
+				),
+			)
+		case "out":
+			collector.cachedMetrics = append(collector.cachedMetrics,
+				prometheus.MustNewConstMetric(
+					collector.interfaceTransmitDrops, prometheus.CounterValue, packets, interfaceName,
+				),
+			)
+		}
+	}
+
+	return nil
+}
+
+func (collector *interfaceCollector) collectInterfacePauseCounters(interfaceName string, counters map[string]string) error {
+	var interfacePauseTypeMap = map[string]string{
+		"in":  "SAI_PORT_STAT_PAUSE_RX_PKTS",
+		"out": "SAI_PORT_STAT_PAUSE_TX_PKTS",
+	}
+
+	for _, direction := range []string{"in", "out"} {
+		packets, err := parseFloat(counters[interfacePauseTypeMap[direction]])
+		if err != nil {
+			return fmt.Errorf("value parse failed: %w", err)
+		}
+
+		switch direction {
+		case "in":
+			collector.cachedMetrics = append(collector.cachedMetrics,
+				prometheus.MustNewConstMetric(
+					collector.interfaceReceivePause, prometheus.CounterValue, packets, interfaceName,
+				),
+			)
+		case "out":
+			collector.cachedMetrics = append(collector.cachedMetrics,
+				prometheus.MustNewConstMetric(
+					collector.interfaceTransmitPause, prometheus.CounterValue, packets, interfaceName,
+				),
+			)
 		}
 	}
 
